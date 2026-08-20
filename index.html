@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TN FARMING - விவசாயிகளுக்கான நவீன சந்தை</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <!-- ================= LOGIN PAGE ================= -->
+    <div id="loginPage" class="login-page">
+
+        <div class="login-card">
+
+            <div class="logo">🌾</div>
+
+            <h1>TN FARMING</h1>
+            <h3>விவசாயிகளுக்கான நவீன சந்தை</h3>
+            <p>Modern Market for Farmers</p>
+
+            <div class="role-buttons">
+                <button id="farmerBtn" onclick="selectRole('farmer')">
+                    👨‍🌾 Farmer / விவசாயி
+                </button>
+
+                <button id="buyerBtn" onclick="selectRole('buyer')">
+                    🛒 Buyer / வாங்குபவர்
+                </button>
+            </div>
+
+            <input id="loginName" type="text" placeholder="Name / பெயர்">
+
+            <input id="loginPhone" type="tel" placeholder="Mobile Number / கைபேசி எண்">
+
+            <!-- PASSWORD -->
+            <div class="password-container">
+
+                <input id="loginPassword" type="password" placeholder="Password / கடவுச்சொல்">
+
+                <label class="show-password">
+                    <input type="checkbox" onchange="togglePassword()">
+                    Show Password / கடவுச்சொல்லைக் காண்பி
+                </label>
+
+            </div>
+
+            <button class="primary-btn" onclick="login()">
+                🔐 LOGIN / உள்நுழைவு
+            </button>
+
+            <p class="demo-text">
+                Enter your details to create/login
+            </p>
+
+        </div>
+    </div>
+
+
+    <!-- ================= MAIN APP ================= -->
+
+    <div id="app" class="hidden">
+
+        <!-- HEADER -->
+
+        <header>
+
+            <div class="brand">
+                🌾 TN FARMING
+                <span>விவசாயிகளுக்கான நவீன சந்தை</span>
+            </div>
+
+            <div class="header-user">
+
+                <span id="welcomeUser"></span>
+
+                <button onclick="logout()">
+                    Logout / வெளியேறு
+                </button>
+
+            </div>
+
+        </header>
+
+
+        <!-- NAVIGATION -->
+
+        <nav>
+
+            <button onclick="showSection('dashboard')">
+                🏠 Dashboard / முகப்பு
+            </button>
+
+            <button onclick="showSection('profile')">
+                👤 Profile / சுயவிவரம்
+            </button>
+
+            <button id="farmerCropNav" onclick="showSection('myCrops')">
+                🌱 My Crops / என் பயிர்கள்
+            </button>
+
+            <button id="buyerBrowseNav" onclick="showSection('browse')">
+                🛒 Browse Crops / பயிர்களைப் பார்க்க
+            </button>
+
+            <button onclick="showSection('requests')">
+                📋 Requests / கோரிக்கைகள்
+            </button>
+
+            <button onclick="showSection('feedback')">
+                ⭐ Feedback / மதிப்பீடு
+            </button>
+
+        </nav>
+
+
+        <!-- ================= DASHBOARD ================= -->
+
+        <section id="dashboard" class="section">
+
+            <div class="welcome-box">
+
+                <h1 id="dashboardWelcome">
+                    Welcome / வரவேற்கிறோம்
+                </h1>
+
+                <p>
+                    Your Crop. Your Price. Your Market.
+                    <br>
+                    உங்கள் பயிர். உங்கள் விலை. உங்கள் சந்தை.
+                </p>
+
+            </div>
+
+
+            <div class="stats">
+
+                <div class="stat-card">
+                    <div>🌱</div>
+                    <h2 id="productCount">0</h2>
+                    <p>Products / பயிர்கள்</p>
+                </div>
+
+                <div class="stat-card">
+                    <div>📦</div>
+                    <h2 id="stockCount">0</h2>
+                    <p>Stock kg / கையிருப்பு கிலோ</p>
+                </div>
+
+                <div class="stat-card">
+                    <div>🛒</div>
+                    <h2 id="requestCount">0</h2>
+                    <p>Requests / கோரிக்கைகள்</p>
+                </div>
+
+                <div class="stat-card">
+                    <div>⭐</div>
+                    <h2 id="ratingCount">0</h2>
+                    <p>Rating / மதிப்பீடு</p>
+                </div>
+
+            </div>
+
+
+            <div class="quick-box">
+
+                <h2>
+                    ⚡ Quick Actions / விரைவு செயல்கள்
+                </h2>
+
+                <div class="quick-buttons">
+
+                    <button id="farmerQuick" onclick="showSection('myCrops')">
+                        🌱 Post Crop / பயிர் பதிவு
+                    </button>
+
+                    <button id="buyerQuick" onclick="showSection('browse')">
+                        🛒 Buy Crop / பயிர் வாங்க
+                    </button>
+
+                    <button onclick="showSection('profile')">
+                        👤 My Profile / என் சுயவிவரம்
+                    </button>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- ================= PROFILE ================= -->
+
+        <section id="profile" class="section hidden">
+
+            <div class="section-heading">
+
+                <h2 id="profileHeading">
+                    👤 Profile / சுயவிவரம்
+                </h2>
+
+            </div>
+
+
+            <div class="profile-container">
+
+                <div class="profile-photo-area">
+
+                    <img id="profileImage" src="https://via.placeholder.com/180?text=Profile">
+
+                    <label class="upload-label">
+
+                        📷 Upload Photo /
+                        புகைப்படம்
+
+                        <input type="file" accept="image/*" onchange="uploadProfilePhoto(event)">
+
+                    </label>
+
+                </div>
+
+
+                <div class="profile-form">
+
+                    <label>
+                        Name / பெயர்
+                    </label>
+
+                    <input id="profileName" type="text">
+
+
+                    <label>
+                        Mobile Number / கைபேசி எண்
+                    </label>
+
+                    <input id="profilePhone" type="tel">
+
+
+                    <label>
+                        Address / முகவரி
+                    </label>
+
+                    <textarea id="profileAddress"></textarea>
+
+
+                    <!-- PAYMENT DETAILS -->
+
+                    <h3 class="payment-title">
+                        💳 Payment Details /
+                        கட்டண விவரங்கள்
+                    </h3>
+
+
+                    <label>
+                        UPI ID
+                    </label>
+
+                    <input id="upiId" type="text" placeholder="example@upi">
+
+
+                    <label>
+                        UPI QR Code
+                    </label>
+
+                    <input id="qrFile" type="file" accept="image/*" onchange="uploadQR(event)">
+
+                    <img id="qrPreview" class="qr-preview">
+
+
+                    <label>
+                        Bank Account Number /
+                        வங்கி கணக்கு எண்
+                    </label>
+
+                    <input id="bankAccount" type="text">
+
+
+                    <label>
+                        IFSC Code
+                    </label>
+
+                    <input id="ifsc" type="text">
+
+
+                    <!-- FARMER THOUGHT -->
+
+                    <div id="farmerThoughtArea">
+
+                        <h3 class="payment-title">
+                            💭 Farmer Thoughts /
+                            விவசாயியின் கருத்து
+                        </h3>
+
+                        <textarea id="farmerThoughts" maxlength="150"
+                            placeholder="Write your thought like WhatsApp About..."></textarea>
+
+                        <small>
+                            Maximum 150 characters /
+                            அதிகபட்சம் 150 எழுத்துகள்
+                        </small>
+
+                    </div>
+
+
+                    <button class="primary-btn" onclick="saveProfile()">
+
+                        💾 Save Profile /
+                        சுயவிவரத்தை சேமிக்க
+
+                    </button>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+        <!-- ================= MY CROPS ================= -->
+
+        <section id="myCrops" class="section hidden">
+
+            <div class="section-heading">
+
+                <h2>
+                    🌱 My Crops / என் பயிர்கள்
+                </h2>
+
+                <button class="primary-small" onclick="openCropModal()">
+
+                    ➕ Post Crop /
+                    பயிர் பதிவு
+
+                </button>
+
+            </div>
+
+            <div id="myCropContainer" class="product-grid">
+            </div>
+
+        </section>
+
+
+        <!-- ================= BROWSE CROPS ================= -->
+
+        <section id="browse" class="section hidden">
+
+            <div class="section-heading">
+
+                <h2>
+                    🛒 Browse Crops /
+                    பயிர்களைப் பார்க்க
+                </h2>
+
+                <input id="searchInput" class="search-box" placeholder="Search / தேடுக..." oninput="renderBrowse()">
+
+            </div>
+
+            <div id="browseContainer" class="product-grid">
+            </div>
+
+        </section>
+
+
+        <!-- ================= REQUESTS ================= -->
+
+        <section id="requests" class="section hidden">
+
+            <div class="section-heading">
+
+                <h2>
+                    📋 Requests / கோரிக்கைகள்
+                </h2>
+
+            </div>
+
+            <div id="requestContainer"></div>
+
+        </section>
+
+
+        <!-- ================= FEEDBACK ================= -->
+
+        <section id="feedback" class="section hidden">
+
+            <div class="section-heading">
+
+                <h2>
+                    ⭐ Feedback & Rating /
+                    கருத்து & மதிப்பீடு
+                </h2>
+
+            </div>
+
+
+            <div class="feedback-form">
+
+                <h3>
+                    Rate Completed Transaction /
+                    முடிந்த பரிவர்த்தனைக்கு மதிப்பீடு
+                </h3>
+
+                <select id="feedbackRequest">
+
+                    <option value="">
+                        Select Transaction /
+                        பரிவர்த்தனையை தேர்வு செய்க
+                    </option>
+
+                </select>
+
+
+                <select id="feedbackRating">
+
+                    <option value="5">
+                        ⭐⭐⭐⭐⭐ 5
+                    </option>
+
+                    <option value="4">
+                        ⭐⭐⭐⭐ 4
+                    </option>
+
+                    <option value="3">
+                        ⭐⭐⭐ 3
+                    </option>
+
+                    <option value="2">
+                        ⭐⭐ 2
+                    </option>
+
+                    <option value="1">
+                        ⭐ 1
+                    </option>
+
+                </select>
+
+
+                <textarea id="feedbackComment" placeholder="Write feedback / கருத்தை எழுதுங்கள்"></textarea>
+
+
+                <button class="primary-btn" onclick="submitFeedback()">
+
+                    ⭐ Submit Feedback /
+                    மதிப்பீட்டை சமர்ப்பிக்க
+
+                </button>
+
+            </div>
+
+
+            <div id="feedbackContainer"></div>
+
+        </section>
+
+    </div>
+
+
+    <!-- ================= CROP MODAL ================= -->
+
+    <div id="cropModal" class="modal hidden">
+
+        <div class="modal-box">
+
+            <button class="close-btn" onclick="closeCropModal()">
+                ×
+            </button>
+
+            <h2>
+                🌱 Post New Crop /
+                புதிய பயிர் பதிவு
+            </h2>
+
+
+            <label>
+                Crop Name / பயிர் பெயர்
+            </label>
+
+            <input id="cropName" placeholder="Tomato / தக்காளி">
+
+
+            <label>
+                Price per kg / கிலோ விலை
+            </label>
+
+            <input id="cropPrice" type="number" min="1" placeholder="₹ Price">
+
+
+            <label>
+                Total Stock / மொத்த கையிருப்பு (kg)
+            </label>
+
+            <input id="cropStock" type="number" min="1" placeholder="Example: 100">
+
+
+            <label>
+                Crop Photo / பயிர் புகைப்படம்
+            </label>
+
+            <input id="cropImage" type="file" accept="image/*">
+
+
+            <button class="primary-btn" onclick="postCrop()">
+
+                🌱 POST CROP /
+                பயிரை பதிவு செய்க
+
+            </button>
+
+        </div>
+
+    </div>
+
+
+    <!-- TOAST -->
+
+    <div id="toast"></div>
+
+
+    <script src="script.js"></script>
+
+</body>
+
+</html>
