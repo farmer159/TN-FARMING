@@ -1,1214 +1,1225 @@
-/* =====================================================
-   TN FARMING
-   விவசாயிகளுக்கான நவீன சந்தை
-   ===================================================== */
-
-let selectedRole = "farmer";
-let currentUser = null;
-
+"use strict";
 
 /* ================= STORAGE ================= */
 
-let users =
-    JSON.parse(localStorage.getItem("tn_users")) || [];
-
-let crops =
-    JSON.parse(localStorage.getItem("tn_crops")) || [];
-
-let requests =
-    JSON.parse(localStorage.getItem("tn_requests")) || [];
-
-let feedbacks =
-    JSON.parse(localStorage.getItem("tn_feedbacks")) || [];
-
-
-/* ================= ROLE ================= */
-
-function selectRole(role) {
-
-    selectedRole = role;
-
-    document.getElementById("farmerBtn")
-        .classList.remove("active");
-
-    document.getElementById("buyerBtn")
-        .classList.remove("active");
-
-    if (role === "farmer") {
-
-        document.getElementById("farmerBtn")
-            .classList.add("active");
-
-    } else {
-
-        document.getElementById("buyerBtn")
-            .classList.add("active");
+function readData(key, fallback) {
+    try {
+        const data = localStorage.getItem(key);
+        return data ? JSON.parse(data) : fallback;
+    } catch (e) {
+        return fallback;
     }
 }
 
-selectRole("farmer");
-
-
-/* ================= SHOW PASSWORD ================= */
-
-function togglePassword() {
-
-    const password =
-        document.getElementById("loginPassword");
-
-    if (password.type === "password") {
-
-        password.type = "text";
-
-    } else {
-
-        password.type = "password";
+function writeData(key, value) {
+    try {
+        localStorage.setItem(key, JSON.stringify(value));
+        return true;
+    } catch (e) {
+        alert("Storage full. Please clear old browser data.");
+        return false;
     }
 }
 
 
-/* ================= LOGIN ================= */
+/* ================= DATA ================= */
 
-function login() {
+let account = readData("tnAccount", null);
+let products = readData("tnProducts", []);
+let requests = readData("tnRequests", []);
+let trades = readData("tnTrades", []);
+
+let currentPhoto = "";
+let currentUPIQR = "";
+let cameraStream = null;
+
+
+/* ================= AUTH ================= */
+
+function showCreate() {
+    document.getElementById("createPage").classList.remove("hidden");
+    document.getElementById("loginPage").classList.add("hidden");
+}
+
+function showLogin() {
+    document.getElementById("createPage").classList.add("hidden");
+    document.getElementById("loginPage").classList.remove("hidden");
+}
+
+function togglePassword(id, btn) {
+
+    const input = document.getElementById(id);
+
+    if (input.type === "password") {
+        input.type = "text";
+        btn.textContent = "🙈";
+    } else {
+        input.type = "password";
+        btn.textContent = "👁";
+    }
+}
+
+
+function createAccount() {
 
     const name =
-        document.getElementById("loginName")
-            .value.trim();
+        document.getElementById("createName").value.trim();
 
     const phone =
-        document.getElementById("loginPhone")
-            .value.trim();
+        document.getElementById("createPhone").value.trim();
+
+    const username =
+        document.getElementById("createUsername").value.trim();
 
     const password =
-        document.getElementById("loginPassword")
-            .value.trim();
+        document.getElementById("createPassword").value;
+
+    const role =
+        document.getElementById("createRole").value;
 
 
-    if (!name || !phone || !password) {
+    if (!name || !phone || !username || !password || !role) {
 
-        showToast(
-            "Please fill all details / அனைத்து விவரங்களையும் நிரப்பவும்"
+        showMessage(
+            "createMsg",
+            "❌ Please fill all details.",
+            "red"
         );
 
         return;
     }
 
 
-    let user =
-        users.find(
-            u =>
-                u.phone === phone &&
-                u.role === selectedRole
-        );
+    account = {
+
+        name,
+        phone,
+        username,
+        password,
+        role,
+
+        thought: "",
+
+        upi: "",
+        upiQR: "",
+        bankAccount: "",
+        ifsc: "",
+
+        ratingTotal: 0,
+        ratingCount: 0,
+        feedbacks: []
+
+    };
 
 
-    if (!user) {
+    writeData("tnAccount", account);
 
-        user = {
+    localStorage.removeItem("tnLoggedIn");
 
-            id: Date.now().toString(),
-
-            name: name,
-
-            phone: phone,
-
-            password: password,
-
-            role: selectedRole,
-
-            address: "",
-
-            upi: "",
-
-            qr: "",
-
-            bank: "",
-
-            ifsc: "",
-
-            thoughts: "",
-
-            photo: ""
-        };
+    showMessage(
+        "createMsg",
+        "✅ Account created successfully!",
+        "green"
+    );
 
 
-        users.push(user);
+    setTimeout(() => {
 
-        saveUsers();
+        showLogin();
 
-    } else {
+        document.getElementById(
+            "loginUsername"
+        ).value = username;
 
-        if (user.password !== password) {
+    }, 600);
+}
 
-            showToast(
-                "Wrong password / தவறான கடவுச்சொல்"
-            );
 
-            return;
-        }
+function login() {
+
+    account =
+        readData("tnAccount", null);
+
+
+    if (!account) {
+
+        showCreate();
+
+        return;
     }
 
 
-    currentUser = user;
+    const username =
+        document.getElementById(
+            "loginUsername"
+        ).value.trim();
 
 
-    document.getElementById("loginPage")
-        .classList.add("hidden");
-
-    document.getElementById("app")
-        .classList.remove("hidden");
-
-
-    document.getElementById("welcomeUser")
-        .textContent =
-        `${currentUser.role === "farmer"
-            ? "👨‍🌾"
-            : "🛒"} ${currentUser.name}`;
+    const password =
+        document.getElementById(
+            "loginPassword"
+        ).value;
 
 
-    document.getElementById("dashboardWelcome")
-        .innerHTML =
-        `Welcome ${currentUser.name}! /
-         வரவேற்கிறோம் ${currentUser.name}!`;
+    if (
+        username === account.username &&
+        password === account.password
+    ) {
 
+        localStorage.setItem(
+            "tnLoggedIn",
+            "true"
+        );
 
-    setupNavigation();
+        openApp();
 
-    loadProfile();
+    } else {
 
-    updateDashboard();
-
-    showSection("dashboard");
+        showMessage(
+            "loginMsg",
+            "❌ Invalid username or password.",
+            "red"
+        );
+    }
 }
 
-
-/* ================= LOGOUT ================= */
 
 function logout() {
 
-    currentUser = null;
+    localStorage.removeItem(
+        "tnLoggedIn"
+    );
 
-    document.getElementById("app")
-        .classList.add("hidden");
+    stopCamera();
 
-    document.getElementById("loginPage")
-        .classList.remove("hidden");
+    document.getElementById(
+        "appPage"
+    ).classList.add("hidden");
 
-    document.getElementById("loginPassword")
-        .value = "";
+    document.getElementById(
+        "loginPage"
+    ).classList.remove("hidden");
+
+    document.getElementById(
+        "loginPassword"
+    ).value = "";
 }
 
 
-/* ================= NAVIGATION ================= */
+/* ================= APP ================= */
 
-function setupNavigation() {
+function openApp() {
 
-    const isFarmer =
-        currentUser.role === "farmer";
+    document.getElementById(
+        "createPage"
+    ).classList.add("hidden");
 
+    document.getElementById(
+        "loginPage"
+    ).classList.add("hidden");
 
-    document.getElementById("farmerCropNav")
-        .style.display =
-        isFarmer ? "block" : "none";
-
-
-    document.getElementById("buyerBrowseNav")
-        .style.display =
-        isFarmer ? "none" : "block";
-
-
-    document.getElementById("farmerQuick")
-        .style.display =
-        isFarmer ? "block" : "none";
+    document.getElementById(
+        "appPage"
+    ).classList.remove("hidden");
 
 
-    document.getElementById("buyerQuick")
-        .style.display =
-        isFarmer ? "none" : "block";
-}
+    document.getElementById(
+        "welcomeUser"
+    ).textContent =
+        "👋 " + account.name;
 
 
-function showSection(sectionId) {
-
-    document.querySelectorAll(".section")
-        .forEach(section => {
-
-            section.classList.add("hidden");
-
-        });
+    document.getElementById(
+        "accountName"
+    ).textContent =
+        account.name;
 
 
-    document.getElementById(sectionId)
-        .classList.remove("hidden");
+    document.getElementById(
+        "accountPhone"
+    ).textContent =
+        account.phone;
 
 
-    if (sectionId === "myCrops")
-        renderMyCrops();
-
-    if (sectionId === "browse")
-        renderBrowse();
-
-    if (sectionId === "requests")
-        renderRequests();
-
-    if (sectionId === "feedback")
-        renderFeedback();
-}
+    document.getElementById(
+        "accountRole"
+    ).textContent =
+        account.role === "farmer"
+            ? "👨‍🌾 Farmer"
+            : "🛒 Buyer";
 
 
-/* ================= PROFILE ================= */
-
-function loadProfile() {
-
-    document.getElementById("profileHeading")
-        .textContent =
-        currentUser.role === "farmer"
-
-            ? "👨‍🌾 Farmer Profile / விவசாயி சுயவிவரம்"
-
-            : "🛒 Buyer Profile / வாங்குபவர் சுயவிவரம்";
-
-
-    document.getElementById("profileName")
-        .value =
-        currentUser.name || "";
-
-
-    document.getElementById("profilePhone")
-        .value =
-        currentUser.phone || "";
-
-
-    document.getElementById("profileAddress")
-        .value =
-        currentUser.address || "";
-
-
-    document.getElementById("upiId")
-        .value =
-        currentUser.upi || "";
-
-
-    document.getElementById("bankAccount")
-        .value =
-        currentUser.bank || "";
-
-
-    document.getElementById("ifsc")
-        .value =
-        currentUser.ifsc || "";
-
-
-    document.getElementById("farmerThoughts")
-        .value =
-        currentUser.thoughts || "";
-
-
-    document.getElementById("farmerThoughtArea")
-        .style.display =
-        currentUser.role === "farmer"
+    document.getElementById(
+        "addNav"
+    ).style.display =
+        account.role === "farmer"
             ? "block"
             : "none";
 
 
-    document.getElementById("profileImage")
-        .src =
-        currentUser.photo ||
-        "https://via.placeholder.com/180?text=Profile";
+    document.getElementById(
+        "chartSection"
+    ).style.display =
+        account.role === "farmer"
+            ? "block"
+            : "none";
 
 
-    document.getElementById("qrPreview")
-        .src =
-        currentUser.qr || "";
+    updateProfileUI();
+
+    displayProducts();
+
+    displayRequests();
+
+    displayTrades();
+
+    updateBuyerOfferChart();
+
+    updateNotificationCount();
+
+    cleanupZeroStock();
 }
 
 
-/* ================= SAVE PROFILE ================= */
+/* ================= NAV ================= */
 
-function saveProfile() {
+function showSection(id) {
 
-    currentUser.name =
-        document.getElementById("profileName")
-            .value.trim();
-
-
-    currentUser.phone =
-        document.getElementById("profilePhone")
-            .value.trim();
+    document
+        .querySelectorAll(".section")
+        .forEach(s => {
+            s.classList.remove("active");
+        });
 
 
-    currentUser.address =
-        document.getElementById("profileAddress")
-            .value.trim();
+    const target =
+        document.getElementById(id);
 
 
-    currentUser.upi =
-        document.getElementById("upiId")
-            .value.trim();
+    if (target) {
+        target.classList.add("active");
+    }
 
 
-    currentUser.bank =
-        document.getElementById("bankAccount")
-            .value.trim();
+    if (id === "products") {
+        displayProducts();
+    }
 
 
-    currentUser.ifsc =
-        document.getElementById("ifsc")
-            .value.trim();
+    if (id === "requests") {
+
+        displayRequests();
+
+        updateBuyerOfferChart();
+
+    }
 
 
-    currentUser.thoughts =
-        document.getElementById("farmerThoughts")
-            .value.trim();
+    if (id === "trading") {
+        displayTrades();
+    }
 
 
-    const index =
-        users.findIndex(
-            u => u.id === currentUser.id
-        );
-
-
-    if (index !== -1)
-        users[index] = currentUser;
-
-
-    saveUsers();
-
-
-    document.getElementById("welcomeUser")
-        .textContent =
-        `👤 ${currentUser.name}`;
-
-
-    showToast(
-        "Profile saved / சுயவிவரம் சேமிக்கப்பட்டது"
-    );
+    if (id === "account") {
+        updateProfileUI();
+    }
 }
 
 
-/* ================= PROFILE PHOTO ================= */
+/* ================= CAMERA ================= */
 
-function uploadProfilePhoto(event) {
+async function startCamera() {
 
-    const file =
-        event.target.files[0];
+    if (
+        !navigator.mediaDevices ||
+        !navigator.mediaDevices.getUserMedia
+    ) {
 
-    if (!file)
-        return;
-
-
-    const reader =
-        new FileReader();
-
-
-    reader.onload =
-        function (event) {
-
-            currentUser.photo =
-                event.target.result;
-
-            document.getElementById("profileImage")
-                .src =
-                event.target.result;
-        };
-
-
-    reader.readAsDataURL(file);
-}
-
-
-/* ================= QR ================= */
-
-function uploadQR(event) {
-
-    const file =
-        event.target.files[0];
-
-    if (!file)
-        return;
-
-
-    const reader =
-        new FileReader();
-
-
-    reader.onload =
-        function (event) {
-
-            currentUser.qr =
-                event.target.result;
-
-            document.getElementById("qrPreview")
-                .src =
-                event.target.result;
-        };
-
-
-    reader.readAsDataURL(file);
-}
-
-
-/* ================= CROP MODAL ================= */
-
-function openCropModal() {
-
-    document.getElementById("cropModal")
-        .classList.remove("hidden");
-}
-
-
-function closeCropModal() {
-
-    document.getElementById("cropModal")
-        .classList.add("hidden");
-}
-
-
-/* ================= POST CROP ================= */
-
-function postCrop() {
-
-    const name =
-        document.getElementById("cropName")
-            .value.trim();
-
-    const price =
-        Number(
-            document.getElementById("cropPrice")
-                .value
-        );
-
-    const stock =
-        Number(
-            document.getElementById("cropStock")
-                .value
-        );
-
-    const imageFile =
-        document.getElementById("cropImage")
-            .files[0];
-
-
-    if (!name || price <= 0 || stock <= 0) {
-
-        showToast(
-            "Enter valid crop details / சரியான பயிர் விவரங்களை உள்ளிடவும்"
+        alert(
+            "Camera is not supported."
         );
 
         return;
     }
 
 
-    const crop = {
+    try {
 
-        id: Date.now().toString(),
+        stopCamera();
 
-        farmerId:
-            currentUser.id,
+        cameraStream =
+            await navigator.mediaDevices.getUserMedia({
+                video: {
+                    facingMode: "environment"
+                },
+                audio: false
+            });
 
-        farmerName:
-            currentUser.name,
 
-        name:
-            name,
+        const video =
+            document.getElementById("camera");
 
-        price:
-            price,
 
-        stock:
-            stock,
+        video.srcObject =
+            cameraStream;
 
-        image:
-            "",
 
-        createdAt:
-            new Date().toISOString()
+        await video.play();
+
+    } catch (e) {
+
+        alert(
+            "Camera permission denied or camera unavailable."
+        );
+    }
+}
+
+
+function takePhoto() {
+
+    if (!cameraStream) {
+
+        alert(
+            "First click Open Camera."
+        );
+
+        return;
+    }
+
+
+    const video =
+        document.getElementById("camera");
+
+
+    const canvas =
+        document.getElementById("canvas");
+
+
+    if (!video.videoWidth) {
+
+        alert(
+            "Camera is still starting."
+        );
+
+        return;
+    }
+
+
+    canvas.width =
+        video.videoWidth;
+
+    canvas.height =
+        video.videoHeight;
+
+
+    canvas
+        .getContext("2d")
+        .drawImage(
+            video,
+            0,
+            0,
+            canvas.width,
+            canvas.height
+        );
+
+
+    currentPhoto =
+        canvas.toDataURL(
+            "image/jpeg",
+            .65
+        );
+
+
+    showPhotoPreview(
+        currentPhoto
+    );
+}
+
+
+function uploadPhoto(event) {
+
+    const file =
+        event.target.files[0];
+
+
+    if (!file) return;
+
+
+    const reader =
+        new FileReader();
+
+
+    reader.onload = e => {
+
+        currentPhoto =
+            e.target.result;
+
+        showPhotoPreview(
+            currentPhoto
+        );
+
     };
 
 
-    if (imageFile) {
-
-        const reader =
-            new FileReader();
-
-
-        reader.onload =
-            function (event) {
-
-                crop.image =
-                    event.target.result;
-
-                crops.push(crop);
-
-                saveCrops();
-
-                finishCropPost();
-            };
-
-
-        reader.readAsDataURL(imageFile);
-
-    } else {
-
-        crops.push(crop);
-
-        saveCrops();
-
-        finishCropPost();
-    }
+    reader.readAsDataURL(file);
 }
 
 
-function finishCropPost() {
+function showPhotoPreview(image) {
 
-    document.getElementById("cropName")
-        .value = "";
-
-    document.getElementById("cropPrice")
-        .value = "";
-
-    document.getElementById("cropStock")
-        .value = "";
-
-    document.getElementById("cropImage")
-        .value = "";
+    const preview =
+        document.getElementById(
+            "photoPreview"
+        );
 
 
-    closeCropModal();
+    preview.src = image;
 
-    renderMyCrops();
-
-    updateDashboard();
-
-
-    showToast(
-        "Crop posted / பயிர் பதிவு செய்யப்பட்டது 🌱"
+    preview.classList.remove(
+        "hidden"
     );
 }
 
 
-/* ================= MY CROPS ================= */
+function stopCamera() {
 
-function renderMyCrops() {
+    if (cameraStream) {
 
-    const container =
-        document.getElementById(
-            "myCropContainer"
-        );
-
-
-    const myCrops =
-        crops.filter(
-            c =>
-                c.farmerId === currentUser.id
-        );
-
-
-    if (!myCrops.length) {
-
-        container.innerHTML = `
-            <div class="request-card">
-                <h3>
-                    No crops posted /
-                    இன்னும் பயிர்கள் பதிவு செய்யப்படவில்லை
-                </h3>
-            </div>
-        `;
-
-        return;
-    }
-
-
-    container.innerHTML =
-        myCrops
-            .map(crop => farmerCropCard(crop))
-            .join("");
-}
-
-
-function farmerCropCard(crop) {
-
-    const image =
-        crop.image ||
-        "https://via.placeholder.com/500x300?text=Crop";
-
-
-    const cropRequests =
-        requests.filter(
-            r =>
-                r.cropId === crop.id
-        );
-
-
-    const activeRequests =
-        cropRequests.filter(
-            r =>
-                r.status !== "rejected"
-        );
-
-
-    const totalDemand =
-        activeRequests.reduce(
-            (sum, r) =>
-                sum + Number(r.quantity),
-            0
-        );
-
-
-    return `
-
-        <div class="product-card">
-
-            <img class="product-image"
-                 src="${image}">
-
-            <div class="product-content">
-
-                <h3>
-                    🌱 ${crop.name}
-                </h3>
-
-                <div class="price">
-                    ₹${crop.price} / kg
-                </div>
-
-                <div class="stock">
-                    📦 Available Stock /
-                    கிடைக்கும் கையிருப்பு:
-                    ${crop.stock} kg
-                </div>
-
-                <div class="trading-box">
-
-                    <h4>
-                        📊 Trading / வர்த்தகம்
-                    </h4>
-
-                    <div class="demand">
-                        Total Demand /
-                        மொத்த தேவை:
-                        ${totalDemand} kg
-                    </div>
-
-                    <p>
-                        Requests /
-                        கோரிக்கைகள்:
-                        ${cropRequests.length}
-                    </p>
-
-                    ${cropRequests.length
-
-            ?
-
-            cropRequests.map(
-                (r, index) => `
-
-                            <div class="request-row">
-
-                                <span>
-                                    Buyer ${index + 1}
-                                </span>
-
-                                <strong>
-                                    ${r.quantity} kg
-                                </strong>
-
-                            </div>
-
-                        `
-            ).join("")
-
-            :
-
-            `
-                        <p>
-                            No requests yet /
-                            இன்னும் கோரிக்கைகள் இல்லை
-                        </p>
-                        `
-        }
-
-                </div>
-
-
-                <button class="primary-btn"
-                        onclick="showSection('requests')">
-
-                    📋 View Requests /
-                    கோரிக்கைகளைப் பார்க்க
-
-                </button>
-
-            </div>
-
-        </div>
-    `;
-}
-
-
-/* ================= BROWSE ================= */
-
-function renderBrowse() {
-
-    const container =
-        document.getElementById(
-            "browseContainer"
-        );
-
-
-    const search =
-        document.getElementById(
-            "searchInput"
-        )
-            .value
-            .toLowerCase();
-
-
-    const availableCrops =
-        crops.filter(
-            crop =>
-
-                crop.stock > 0 &&
-
-                (
-                    crop.name
-                        .toLowerCase()
-                        .includes(search)
-
-                    ||
-
-                    crop.farmerName
-                        .toLowerCase()
-                        .includes(search)
-                )
-        );
-
-
-    if (!availableCrops.length) {
-
-        container.innerHTML = `
-            <div class="request-card">
-
-                <h3>
-                    No crops available /
-                    பயிர்கள் கிடைக்கவில்லை
-                </h3>
-
-            </div>
-        `;
-
-        return;
-    }
-
-
-    container.innerHTML =
-        availableCrops
-            .map(crop => buyerCropCard(crop))
-            .join("");
-}
-
-
-function buyerCropCard(crop) {
-
-    const image =
-        crop.image ||
-        "https://via.placeholder.com/500x300?text=Crop";
-
-
-    const activeRequests =
-        requests.filter(
-            r =>
-                r.cropId === crop.id &&
-                r.status !== "rejected"
-        );
-
-
-    const totalDemand =
-        activeRequests.reduce(
-            (sum, r) =>
-                sum + Number(r.quantity),
-            0
-        );
-
-
-    return `
-
-        <div class="product-card">
-
-            <img class="product-image"
-                 src="${image}">
-
-
-            <div class="product-content">
-
-                <h3>
-                    🌱 ${crop.name}
-                </h3>
-
-                <p>
-                    👨‍🌾 Farmer / விவசாயி:
-                    ${crop.farmerName}
-                </p>
-
-
-                <div class="price">
-                    ₹${crop.price} / kg
-                </div>
-
-
-                <div class="stock">
-                    📦 Available /
-                    கிடைக்கும் கையிருப்பு:
-                    ${crop.stock} kg
-                </div>
-
-
-                <!-- TRADING -->
-
-                <div class="trading-box">
-
-                    <h4>
-                        📊 Buyer Demand /
-                        வாங்குபவர் தேவை
-                    </h4>
-
-                    <div class="demand">
-                        ${totalDemand} kg
-                        requested /
-                        கோரப்பட்டுள்ளது
-                    </div>
-
-
-                    ${activeRequests.length
-
-            ?
-
-            activeRequests
-                .map(
-                    (r, index) => `
-
-                                <div class="request-row">
-
-                                    <span>
-                                        Buyer ${index + 1}
-                                    </span>
-
-                                    <strong>
-                                        ${r.quantity} kg
-                                    </strong>
-
-                                </div>
-
-                            `
-                )
-                .join("")
-
-            :
-
-            `
-                        <p>
-                            No requests yet /
-                            இன்னும் கோரிக்கைகள் இல்லை
-                        </p>
-                        `
-        }
-
-                </div>
-
-
-                <input
-                    id="quantity-${crop.id}"
-                    class="quantity-input"
-                    type="number"
-                    min="1"
-                    max="${crop.stock}"
-                    placeholder="Required kg / தேவையான கிலோ">
-
-
-                <button class="primary-btn"
-                        onclick="sendRequest('${crop.id}')">
-
-                    🛒 Request Product /
-                    பொருளைக் கோருங்கள்
-
-                </button>
-
-            </div>
-
-        </div>
-    `;
-}
-
-
-/* ================= SEND REQUEST ================= */
-
-function sendRequest(cropId) {
-
-    const crop =
-        crops.find(
-            c =>
-                c.id === cropId
-        );
-
-
-    if (!crop || crop.stock <= 0) {
-
-        showToast(
-            "Product unavailable / பொருள் கிடைக்கவில்லை"
-        );
-
-        return;
-    }
-
-
-    const input =
-        document.getElementById(
-            `quantity-${cropId}`
-        );
-
-
-    const quantity =
-        Number(input.value);
-
-
-    if (!quantity || quantity <= 0) {
-
-        showToast(
-            "Enter quantity / அளவை உள்ளிடவும்"
-        );
-
-        return;
-    }
-
-
-    if (quantity > crop.stock) {
-
-        showToast(
-            `Only ${crop.stock} kg available`
-        );
-
-        return;
-    }
-
-
-    requests.push({
-
-        id:
-            Date.now().toString(),
-
-        cropId:
-            crop.id,
-
-        farmerId:
-            crop.farmerId,
-
-        farmerName:
-            crop.farmerName,
-
-        buyerId:
-            currentUser.id,
-
-        buyerName:
-            currentUser.name,
-
-        quantity:
-            quantity,
-
-        status:
-            "pending",
-
-        completed:
-            false,
-
-        createdAt:
-            new Date().toISOString()
-    });
-
-
-    saveRequests();
-
-
-    showToast(
-        "Request sent / கோரிக்கை அனுப்பப்பட்டது 🛒"
-    );
-
-
-    renderBrowse();
-
-    updateDashboard();
-}
-
-
-/* ================= REQUESTS ================= */
-
-function renderRequests() {
-
-    const container =
-        document.getElementById(
-            "requestContainer"
-        );
-
-
-    let list;
-
-
-    if (currentUser.role === "farmer") {
-
-        list =
-            requests.filter(
-                r =>
-                    r.farmerId === currentUser.id
+        cameraStream
+            .getTracks()
+            .forEach(track =>
+                track.stop()
             );
 
-    } else {
-
-        list =
-            requests.filter(
-                r =>
-                    r.buyerId === currentUser.id
-            );
+        cameraStream = null;
     }
 
 
-    if (!list.length) {
+    const video =
+        document.getElementById(
+            "camera"
+        );
 
-        container.innerHTML = `
-            <div class="request-card">
 
-                <h3>
-                    No requests /
-                    கோரிக்கைகள் இல்லை
-                </h3>
-
-            </div>
-        `;
-
-        return;
+    if (video) {
+        video.srcObject = null;
     }
-
-
-    container.innerHTML =
-        list
-            .sort(
-                (a, b) =>
-                    new Date(b.createdAt) -
-                    new Date(a.createdAt)
-            )
-            .map(r => requestCard(r))
-            .join("");
 }
 
 
-function requestCard(request) {
+/* ================= ADD CROP ================= */
 
-    const crop =
-        crops.find(
-            c =>
-                c.id === request.cropId
+function addProduct() {
+
+    if (
+        !account ||
+        account.role !== "farmer"
+    ) {
+
+        alert(
+            "Only farmers can add crops."
         );
+
+        return;
+    }
 
 
     const cropName =
-        crop
-            ? crop.name
-            : "Completed Product / முடிந்த பொருள்";
+        document.getElementById(
+            "cropName"
+        ).value.trim();
 
 
-    return `
-
-        <div class="request-card">
-
-            <h3>
-                🌱 ${cropName}
-            </h3>
-
-
-            ${currentUser.role === "farmer"
-
-            ?
-
-            `
-                <p>
-                    🛒 Buyer / வாங்குபவர்:
-                    ${request.buyerName}
-                </p>
-                `
-
-            :
-
-            `
-                <p>
-                    👨‍🌾 Farmer / விவசாயி:
-                    ${request.farmerName}
-                </p>
-                `
-        }
+    const quantity =
+        Number(
+            document.getElementById(
+                "cropQuantity"
+            ).value
+        );
 
 
-            <p>
-                📦 Quantity / அளவு:
-                <strong>
-                    ${request.quantity} kg
-                </strong>
-            </p>
+    const price =
+        Number(
+            document.getElementById(
+                "cropPrice"
+            ).value
+        );
 
 
-            <p>
-                Status / நிலை:
-                <strong class="${request.status}">
-                    ${getStatusText(request.status)}
-                </strong>
-            </p>
+    const contact =
+        document.getElementById(
+            "farmerContact"
+        ).value.trim();
 
 
-            ${currentUser.role === "farmer" &&
-            request.status === "pending"
+    if (
+        !cropName ||
+        quantity <= 0 ||
+        price <= 0 ||
+        !contact
+    ) {
 
-            ?
+        alert(
+            "Please enter crop, quantity, price and contact."
+        );
 
-            `
-                <div class="request-actions">
-
-                    <button class="accept-btn"
-                            onclick="acceptRequest('${request.id}')">
-
-                        ✅ Accept / ஏற்கவும்
-
-                    </button>
+        return;
+    }
 
 
-                    <button class="reject-btn"
-                            onclick="rejectRequest('${request.id}')">
+    products.push({
 
-                        ❌ Reject / நிராகரிக்கவும்
+        id: Date.now(),
 
-                    </button>
+        farmerName:
+            account.name,
 
-                </div>
-                `
+        farmerPhone:
+            account.phone,
 
-            :
+        cropName,
 
-            ""
-        }
+        quantity,
 
-        </div>
-    `;
+        remainingQuantity:
+            quantity,
+
+        price,
+
+        contact,
+
+        photo:
+            currentPhoto,
+
+        createdAt:
+            new Date().toLocaleString()
+
+    });
+
+
+    writeData(
+        "tnProducts",
+        products
+    );
+
+
+    clearProductForm();
+
+
+    showMessage(
+        "productMsg",
+        "✅ Crop added successfully!",
+        "green"
+    );
+
+
+    displayProducts();
 }
 
 
-function getStatusText(status) {
+function clearProductForm() {
 
-    if (status === "pending")
-        return "PENDING / நிலுவையில்";
+    [
+        "cropName",
+        "cropQuantity",
+        "cropPrice",
+        "farmerContact"
+    ].forEach(id => {
 
-    if (status === "accepted")
-        return "ACCEPTED / ஏற்கப்பட்டது";
+        document.getElementById(
+            id
+        ).value = "";
 
-    if (status === "rejected")
-        return "REJECTED / நிராகரிக்கப்பட்டது";
+    });
 
-    return status;
+
+    currentPhoto = "";
+
+
+    document
+        .getElementById(
+            "photoPreview"
+        )
+        .classList.add(
+            "hidden"
+        );
+
+
+    stopCamera();
+}
+
+
+/* ================= PRODUCTS ================= */
+
+function displayProducts() {
+
+    cleanupZeroStock();
+
+
+    const container =
+        document.getElementById(
+            "productList"
+        );
+
+
+    if (!container) return;
+
+
+    container.innerHTML = "";
+
+
+    if (products.length === 0) {
+
+        container.innerHTML = `
+            <div class="feature-card">
+                🌱 No crops available yet.
+            </div>
+        `;
+
+        return;
+    }
+
+
+    products.forEach(product => {
+
+        const own =
+            account &&
+            product.farmerName ===
+            account.name;
+
+
+        const image =
+            product.photo
+
+                ?
+
+                `
+                <img
+                    class="product-image"
+                    src="${product.photo}"
+                    alt="Crop"
+                >
+                `
+
+                :
+
+                `
+                <div
+                    class="product-image"
+                    style="
+                        display:flex;
+                        align-items:center;
+                        justify-content:center;
+                        font-size:60px;
+                    "
+                >
+                    👨‍🌾🌾
+                </div>
+                `;
+
+
+        container.innerHTML += `
+
+            <div class="product-card">
+
+                ${image}
+
+                <div class="product-content">
+
+                    <h3>
+                        🌾
+                        ${escapeHTML(
+            product.cropName
+        )}
+                    </h3>
+
+                    <p>
+                        👨‍🌾 Farmer:
+                        <strong>
+                            ${escapeHTML(
+            product.farmerName
+        )}
+                        </strong>
+                    </p>
+
+                    <p>
+                        📦 Available Stock:
+                        <strong class="stock-good">
+                            ${product.remainingQuantity} KG
+                        </strong>
+                    </p>
+
+                    <p>
+                        💰 Farmer Price:
+                        <strong>
+                            ₹${product.price}/KG
+                        </strong>
+                    </p>
+
+                    <p>
+                        📞
+                        ${escapeHTML(
+            product.contact
+        )}
+                    </p>
+
+                    <div class="product-buttons">
+
+                        ${account.role === "buyer" &&
+                !own
+                ?
+
+                `
+                            <button
+                                class="request-btn"
+                                onclick="requestProduct(${product.id})"
+                            >
+                                🛒 Request Quantity
+                            </button>
+                            `
+
+                :
+
+                ""
+            }
+
+
+                        ${account.role === "farmer" &&
+                own
+
+                ?
+
+                `
+                            <button
+                                class="edit-btn"
+                                onclick="editProduct(${product.id})"
+                            >
+                                ✏️ Edit
+                            </button>
+
+                            <button
+                                class="delete-btn"
+                                onclick="deleteProduct(${product.id})"
+                            >
+                                🗑️ Delete
+                            </button>
+                            `
+
+                :
+
+                ""
+            }
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        `;
+    });
+}
+
+
+/* ================= BUYER REQUEST ================= */
+
+function requestProduct(productId) {
+
+    if (
+        !account ||
+        account.role !== "buyer"
+    ) {
+
+        alert(
+            "🛒 Buyer account-ல் login செய்யவும்."
+        );
+
+        return;
+    }
+
+
+    const product =
+        products.find(
+            p =>
+                Number(p.id) ===
+                Number(productId)
+        );
+
+
+    if (!product) {
+
+        alert(
+            "❌ Crop not found."
+        );
+
+        return;
+    }
+
+
+    if (
+        Number(product.remainingQuantity) <= 0
+    ) {
+
+        alert(
+            "❌ This crop is currently out of stock."
+        );
+
+        return;
+    }
+
+
+    const quantityInput =
+        prompt(
+            "📦 Enter Required Quantity (KG)\n\n" +
+            "Available: " +
+            product.remainingQuantity +
+            " KG"
+        );
+
+
+    if (quantityInput === null) return;
+
+
+    const quantity =
+        Number(quantityInput);
+
+
+    if (
+        !Number.isFinite(quantity) ||
+        quantity <= 0
+    ) {
+
+        alert(
+            "❌ Please enter a valid quantity."
+        );
+
+        return;
+    }
+
+
+    if (
+        quantity >
+        Number(
+            product.remainingQuantity
+        )
+    ) {
+
+        alert(
+            "❌ Requested quantity is greater than available quantity."
+        );
+
+        return;
+    }
+
+
+    const priceInput =
+        prompt(
+            "💰 Enter Your Offer Price / KG\n\n" +
+            "Farmer Price: ₹" +
+            product.price +
+            "/KG"
+        );
+
+
+    if (priceInput === null) return;
+
+
+    const offerPrice =
+        Number(priceInput);
+
+
+    if (
+        !Number.isFinite(offerPrice) ||
+        offerPrice <= 0
+    ) {
+
+        alert(
+            "❌ Please enter a valid price."
+        );
+
+        return;
+    }
+
+
+    const total =
+        quantity * offerPrice;
+
+
+    const newRequest = {
+
+        id: Date.now(),
+
+        productId:
+            product.id,
+
+        cropName:
+            product.cropName,
+
+        farmerName:
+            product.farmerName,
+
+        farmerPhone:
+            product.farmerPhone ||
+            product.contact,
+
+        buyerName:
+            account.name,
+
+        buyerPhone:
+            account.phone,
+
+        quantity,
+
+        offerPrice,
+
+        total,
+
+        status:
+            "Pending",
+
+        createdAt:
+            new Date().toLocaleString()
+
+    };
+
+
+    requests.push(
+        newRequest
+    );
+
+
+    saveAll();
+
+
+    notifyOtherUser(
+        product.farmerName,
+        "💰 New Buyer Request",
+        account.name +
+        " requested " +
+        quantity +
+        " KG of " +
+        product.cropName
+    );
+
+
+    alert(
+        "✅ PRICE REQUEST SENT!\n\n" +
+        "🌾 Crop: " +
+        product.cropName +
+        "\n📦 Quantity: " +
+        quantity +
+        " KG" +
+        "\n💰 Offer: ₹" +
+        offerPrice +
+        "/KG" +
+        "\n💵 Total: ₹" +
+        total +
+        "\n\n⏳ Waiting for Farmer approval."
+    );
+
+
+    displayRequests();
+
+    updateBuyerOfferChart();
+
+    updateNotificationCount();
+}
+
+
+/* ================= REQUEST DISPLAY ================= */
+
+function displayRequests() {
+
+    const container =
+        document.getElementById(
+            "requestList"
+        );
+
+
+    if (!container || !account)
+        return;
+
+
+    container.innerHTML = "";
+
+
+    const visible =
+        account.role === "farmer"
+
+            ?
+
+            requests.filter(
+                r =>
+                    r.farmerName ===
+                    account.name
+            )
+
+            :
+
+            requests.filter(
+                r =>
+                    r.buyerName ===
+                    account.name
+            );
+
+
+    if (visible.length === 0) {
+
+        container.innerHTML = `
+
+            <div class="feature-card">
+
+                📭
+
+                ${account.role === "farmer"
+
+                ?
+
+                "No buyer price requests yet."
+
+                :
+
+                "You have not sent any price requests yet."
+            }
+
+            </div>
+
+        `;
+
+        return;
+    }
+
+
+    visible
+        .slice()
+        .sort(
+            (a, b) =>
+                Number(b.id) -
+                Number(a.id)
+        )
+        .forEach(request => {
+
+            let buttons = "";
+
+
+            if (
+                account.role === "farmer" &&
+                request.status === "Pending"
+            ) {
+
+                buttons = `
+
+                    <div class="product-buttons">
+
+                        <button
+                            class="accept-btn"
+                            onclick="acceptRequest(${request.id})"
+                        >
+                            ✅ Accept
+                        </button>
+
+                        <button
+                            class="reject-btn"
+                            onclick="rejectRequest(${request.id})"
+                        >
+                            ❌ Reject
+                        </button>
+
+                    </div>
+                `;
+            }
+
+
+            const statusClass =
+                request.status === "Accepted"
+                    ? "accepted"
+                    : request.status === "Rejected"
+                        ? "rejected"
+                        : "pending";
+
+
+            const statusText =
+                request.status === "Accepted"
+                    ? "✅ ACCEPTED"
+                    : request.status === "Rejected"
+                        ? "❌ REJECTED"
+                        : "⏳ PENDING";
+
+
+            container.innerHTML += `
+
+                <div class="request-card">
+
+                    <h3>
+                        🌾
+                        ${escapeHTML(
+                request.cropName
+            )}
+                    </h3>
+
+                    <div class="request-details">
+
+                        <div class="detail">
+                            <strong>👨‍🌾 Farmer</strong>
+                            ${escapeHTML(
+                request.farmerName
+            )}
+                        </div>
+
+                        <div class="detail">
+                            <strong>🛒 Buyer</strong>
+                            ${escapeHTML(
+                request.buyerName
+            )}
+                        </div>
+
+                        <div class="detail">
+                            <strong>📦 Quantity</strong>
+                            ${request.quantity} KG
+                        </div>
+
+                        <div class="detail">
+                            <strong>💰 Offer Price</strong>
+                            <span class="offer-price">
+                                ₹${request.offerPrice}/KG
+                            </span>
+                        </div>
+
+                    </div>
+
+                    <p>
+                        📞 Buyer:
+                        <strong>
+                            ${escapeHTML(
+                request.buyerPhone
+            )}
+                        </strong>
+                    </p>
+
+                    <p>
+                        💵 Total:
+                        <span class="total-price">
+                            ₹${request.total}
+                        </span>
+                    </p>
+
+                    <p>
+                        📅
+                        ${escapeHTML(
+                request.createdAt
+            )}
+                    </p>
+
+                    <div class="status ${statusClass}">
+                        ${statusText}
+                    </div>
+
+                    ${buttons}
+
+                </div>
+
+            `;
+        });
 }
 
 
@@ -1216,94 +1227,252 @@ function getStatusText(status) {
 
 function acceptRequest(requestId) {
 
+    if (
+        !account ||
+        account.role !== "farmer"
+    ) {
+
+        alert(
+            "Only the farmer can accept a request."
+        );
+
+        return;
+    }
+
+
     const request =
         requests.find(
             r =>
-                r.id === requestId
+                Number(r.id) ===
+                Number(requestId)
         );
 
 
-    if (!request ||
-        request.status !== "pending")
-        return;
+    if (!request) {
 
-
-    const crop =
-        crops.find(
-            c =>
-                c.id === request.cropId
-        );
-
-
-    if (!crop) {
-
-        showToast(
-            "Product unavailable / பொருள் கிடைக்கவில்லை"
+        alert(
+            "❌ Request not found."
         );
 
         return;
     }
 
 
-    if (request.quantity > crop.stock) {
+    if (
+        request.farmerName !==
+        account.name
+    ) {
 
-        showToast(
-            "Not enough stock / போதுமான கையிருப்பு இல்லை"
+        alert(
+            "❌ You cannot accept this request."
         );
 
         return;
     }
 
 
-    /* REDUCE STOCK */
+    if (
+        request.status !== "Pending"
+    ) {
 
-    crop.stock -=
-        Number(request.quantity);
+        alert(
+            "This request has already been processed."
+        );
+
+        return;
+    }
+
+
+    const product =
+        products.find(
+            p =>
+                Number(p.id) ===
+                Number(request.productId)
+        );
+
+
+    if (!product) {
+
+        alert(
+            "❌ Crop not found."
+        );
+
+        return;
+    }
+
+
+    if (
+        Number(product.remainingQuantity) <
+        Number(request.quantity)
+    ) {
+
+        alert(
+            "❌ Not enough crop quantity available."
+        );
+
+        return;
+    }
+
+
+    if (
+        !confirm(
+            "Accept this buyer offer?\n\n" +
+            "Buyer: " +
+            request.buyerName +
+            "\nCrop: " +
+            request.cropName +
+            "\nQuantity: " +
+            request.quantity +
+            " KG" +
+            "\nOffer: ₹" +
+            request.offerPrice +
+            "/KG" +
+            "\nTotal: ₹" +
+            request.total
+        )
+    ) return;
 
 
     request.status =
-        "accepted";
+        "Accepted";
 
-    request.completed =
-        true;
-
-    request.completedAt =
-        new Date().toISOString();
+    request.acceptedAt =
+        new Date().toLocaleString();
 
 
-    saveCrops();
+    product.remainingQuantity =
+        Number(
+            product.remainingQuantity
+        ) -
+        Number(
+            request.quantity
+        );
 
-    saveRequests();
+
+    const trade = {
+
+        id: Date.now(),
+
+        requestId:
+            request.id,
+
+        productId:
+            request.productId,
+
+        cropName:
+            request.cropName,
+
+        farmerName:
+            request.farmerName,
+
+        farmerPhone:
+            request.farmerPhone,
+
+        buyerName:
+            request.buyerName,
+
+        buyerPhone:
+            request.buyerPhone,
+
+        quantity:
+            Number(request.quantity),
+
+        price:
+            Number(request.offerPrice),
+
+        total:
+            Number(request.total),
+
+        date:
+            new Date().toLocaleString(),
+
+        farmerFeedback:
+            null,
+
+        buyerFeedback:
+            null
+
+    };
 
 
-    /* AUTO DELETE WHEN STOCK = 0 */
+    trades.push(trade);
 
-    if (crop.stock === 0) {
 
-        crops =
-            crops.filter(
-                c =>
-                    c.id !== crop.id
+    /*
+        AUTO DELETE WHEN STOCK = 0
+    */
+
+    if (
+        Number(product.remainingQuantity) <= 0
+    ) {
+
+        products =
+            products.filter(
+                p =>
+                    Number(p.id) !==
+                    Number(product.id)
             );
 
-        saveCrops();
 
+        /*
+            Reject remaining pending
+            requests for this product
+        */
 
-        showToast(
-            "Stock 0. Product automatically deleted / கையிருப்பு 0. பொருள் தானாக நீக்கப்பட்டது 🗑️"
-        );
+        requests.forEach(r => {
 
-    } else {
+            if (
+                Number(r.productId) ===
+                Number(product.id) &&
+                r.status === "Pending"
+            ) {
 
-        showToast(
-            `Request accepted / கோரிக்கை ஏற்கப்பட்டது. Remaining: ${crop.stock} kg`
-        );
+                r.status =
+                    "Rejected";
+
+                r.rejectedAt =
+                    new Date().toLocaleString();
+            }
+
+        });
+
     }
 
 
-    renderRequests();
+    saveAll();
 
-    updateDashboard();
+
+    notifyOtherUser(
+        request.buyerName,
+        "🤝 Trade Confirmed!",
+        account.name +
+        " accepted your request for " +
+        request.cropName +
+        ". Please give your rating & feedback."
+    );
+
+
+    alert(
+        "✅ PRICE REQUEST ACCEPTED!\n\n" +
+        "Buyer: " +
+        request.buyerName +
+        "\nCrop: " +
+        request.cropName +
+        "\nQuantity: " +
+        request.quantity +
+        " KG\n\n🤝 Trading Confirmed!"
+    );
+
+
+    displayProducts();
+
+    displayRequests();
+
+    displayTrades();
+
+    updateBuyerOfferChart();
+
+    updateNotificationCount();
 }
 
 
@@ -1311,445 +1480,1485 @@ function acceptRequest(requestId) {
 
 function rejectRequest(requestId) {
 
-    const request =
-        requests.find(
-            r =>
-                r.id === requestId
+    if (
+        !account ||
+        account.role !== "farmer"
+    ) {
+
+        alert(
+            "Only the farmer can reject a request."
         );
 
-
-    if (!request)
         return;
-
-
-    request.status =
-        "rejected";
-
-
-    saveRequests();
-
-
-    showToast(
-        "Request rejected / கோரிக்கை நிராகரிக்கப்பட்டது ❌"
-    );
-
-
-    renderRequests();
-
-    updateDashboard();
-}
-
-
-/* ================= FEEDBACK ================= */
-
-function renderFeedback() {
-
-    const select =
-        document.getElementById(
-            "feedbackRequest"
-        );
-
-
-    let completed;
-
-
-    if (currentUser.role === "buyer") {
-
-        completed =
-            requests.filter(
-                r =>
-                    r.buyerId === currentUser.id &&
-                    r.status === "accepted"
-            );
-
-    } else {
-
-        completed =
-            requests.filter(
-                r =>
-                    r.farmerId === currentUser.id &&
-                    r.status === "accepted"
-            );
     }
 
 
-    select.innerHTML = `
-        <option value="">
-            Select Transaction /
-            பரிவர்த்தனையை தேர்வு செய்க
-        </option>
-    `;
-
-
-    completed.forEach(request => {
-
-        const already =
-            feedbacks.some(
-                f =>
-                    f.requestId === request.id &&
-                    f.fromId === currentUser.id
-            );
-
-
-        if (!already) {
-
-            const option =
-                document.createElement("option");
-
-            option.value =
-                request.id;
-
-            option.textContent =
-                `${request.farmerName} - ${request.quantity} kg`;
-
-            select.appendChild(option);
-        }
-
-    });
-
-
-    const myFeedback =
-        feedbacks.filter(
-            f =>
-                f.fromId === currentUser.id
+    const request =
+        requests.find(
+            r =>
+                Number(r.id) ===
+                Number(requestId)
         );
 
+
+    if (!request) return;
+
+
+    if (
+        request.status !== "Pending"
+    ) {
+
+        alert(
+            "This request has already been processed."
+        );
+
+        return;
+    }
+
+
+    if (
+        !confirm(
+            "Reject this buyer price request?"
+        )
+    ) return;
+
+
+    request.status =
+        "Rejected";
+
+    request.rejectedAt =
+        new Date().toLocaleString();
+
+
+    saveAll();
+
+
+    notifyOtherUser(
+        request.buyerName,
+        "❌ Request Rejected",
+        "Your request for " +
+        request.cropName +
+        " was rejected by the farmer."
+    );
+
+
+    alert(
+        "❌ Price request rejected."
+    );
+
+
+    displayRequests();
+
+    updateBuyerOfferChart();
+
+    updateNotificationCount();
+}
+
+
+/* ================= TRADING ================= */
+
+function displayTrades() {
 
     const container =
         document.getElementById(
-            "feedbackContainer"
+            "tradingList"
         );
 
 
-    if (!myFeedback.length) {
+    if (!container || !account)
+        return;
+
+
+    container.innerHTML = "";
+
+
+    const visible =
+        trades.filter(
+            t =>
+                t.farmerName ===
+                account.name ||
+
+                t.buyerName ===
+                account.name
+        );
+
+
+    if (visible.length === 0) {
 
         container.innerHTML = `
-            <div class="feedback-card">
-                No feedback yet /
-                இன்னும் மதிப்பீடுகள் இல்லை
+
+            <div class="feature-card">
+                🤝 No confirmed trading yet.
             </div>
+
         `;
 
         return;
     }
 
 
-    container.innerHTML =
-        myFeedback
-            .map(
-                feedback => `
+    visible
+        .slice()
+        .reverse()
+        .forEach(trade => {
 
-                <div class="feedback-card">
+            const isFarmer =
+                trade.farmerName ===
+                account.name;
 
-                    <div class="stars">
-                        ${"⭐".repeat(feedback.rating)}
+
+            const feedbackGiven =
+                isFarmer
+                    ? trade.farmerFeedback
+                    : trade.buyerFeedback;
+
+
+            let feedbackHTML = "";
+
+
+            if (feedbackGiven) {
+
+                feedbackHTML = `
+
+                    <div class="feedback-complete">
+
+                        ⭐ Rating:
+                        ${feedbackGiven.rating}/5
+
+                        <br>
+
+                        💬
+                        ${escapeHTML(
+                    feedbackGiven.comment
+                )}
+
                     </div>
 
+                `;
+
+            } else {
+
+                feedbackHTML = `
+
+                    <div class="feedback-box">
+
+                        <h3>
+                            ⭐ Give Rating & Feedback
+                        </h3>
+
+                        <select id="rating-${trade.id}">
+                            <option value="5">
+                                ⭐⭐⭐⭐⭐ 5
+                            </option>
+                            <option value="4">
+                                ⭐⭐⭐⭐ 4
+                            </option>
+                            <option value="3">
+                                ⭐⭐⭐ 3
+                            </option>
+                            <option value="2">
+                                ⭐⭐ 2
+                            </option>
+                            <option value="1">
+                                ⭐ 1
+                            </option>
+                        </select>
+
+                        <textarea
+                            id="feedback-${trade.id}"
+                            placeholder="Write your feedback..."
+                            rows="3"
+                        ></textarea>
+
+                        <button
+                            class="feedback-btn"
+                            onclick="submitFeedback(${trade.id})"
+                        >
+                            ⭐ Submit Feedback
+                        </button>
+
+                    </div>
+
+                `;
+            }
+
+
+            container.innerHTML += `
+
+                <div class="trade-card">
+
+                    <h3>
+                        🤝
+                        ${escapeHTML(
+                trade.cropName
+            )}
+                    </h3>
+
                     <p>
-                        ${feedback.comment}
+                        👨‍🌾 Farmer:
+                        <strong>
+                            ${escapeHTML(
+                trade.farmerName
+            )}
+                        </strong>
                     </p>
 
+                    <p>
+                        🛒 Buyer:
+                        <strong>
+                            ${escapeHTML(
+                trade.buyerName
+            )}
+                        </strong>
+                    </p>
+
+                    <p>
+                        📦 Quantity:
+                        <strong>
+                            ${trade.quantity} KG
+                        </strong>
+                    </p>
+
+                    <p>
+                        💰 Price:
+                        <strong>
+                            ₹${trade.price}/KG
+                        </strong>
+                    </p>
+
+                    <p>
+                        💵 Total:
+                        <strong>
+                            ₹${trade.total}
+                        </strong>
+                    </p>
+
+                    <div class="trade-success">
+
+                        ✅ TRADING CONFIRMED
+
+                        <br><br>
+
+                        📅
+                        ${escapeHTML(
+                trade.date
+            )}
+
+                    </div>
+
+                    ${feedbackHTML}
+
                 </div>
-            `
-            )
-            .join("");
+
+            `;
+        });
 }
 
 
-/* ================= SUBMIT FEEDBACK ================= */
+/* ================= FEEDBACK ================= */
 
-function submitFeedback() {
+function submitFeedback(tradeId) {
 
-    const requestId =
-        document.getElementById(
-            "feedbackRequest"
-        ).value;
+    if (!account) return;
+
+
+    const trade =
+        trades.find(
+            t =>
+                Number(t.id) ===
+                Number(tradeId)
+        );
+
+
+    if (!trade) {
+
+        alert(
+            "❌ Trade not found."
+        );
+
+        return;
+    }
 
 
     const rating =
         Number(
             document.getElementById(
-                "feedbackRating"
+                "rating-" + tradeId
             ).value
         );
 
 
     const comment =
         document.getElementById(
-            "feedbackComment"
+            "feedback-" + tradeId
         ).value.trim();
 
 
-    if (!requestId || !comment) {
+    if (!comment) {
 
-        showToast(
-            "Select transaction and write feedback"
+        alert(
+            "Please enter your feedback."
         );
 
         return;
     }
 
 
-    const request =
-        requests.find(
-            r =>
-                r.id === requestId
-        );
+    const feedback = {
+
+        rating,
+
+        comment,
+
+        from:
+            account.name,
+
+        date:
+            new Date().toLocaleString()
+
+    };
 
 
-    if (!request ||
-        request.status !== "accepted") {
+    if (
+        account.name ===
+        trade.farmerName
+    ) {
 
-        showToast(
-            "Only completed transactions can be rated"
-        );
+        trade.farmerFeedback =
+            feedback;
 
-        return;
-    }
+    } else if (
+        account.name ===
+        trade.buyerName
+    ) {
 
-
-    const exists =
-        feedbacks.some(
-            f =>
-                f.requestId === requestId &&
-                f.fromId === currentUser.id
-        );
-
-
-    if (exists) {
-
-        showToast(
-            "Feedback already submitted"
-        );
-
-        return;
-    }
-
-
-    const targetId =
-        currentUser.role === "farmer"
-            ? request.buyerId
-            : request.farmerId;
-
-
-    feedbacks.push({
-
-        id:
-            Date.now().toString(),
-
-        requestId:
-            requestId,
-
-        fromId:
-            currentUser.id,
-
-        fromName:
-            currentUser.name,
-
-        toId:
-            targetId,
-
-        rating:
-            rating,
-
-        comment:
-            comment,
-
-        createdAt:
-            new Date().toISOString()
-    });
-
-
-    saveFeedbacks();
-
-
-    document.getElementById(
-        "feedbackComment"
-    ).value = "";
-
-
-    showToast(
-        "Feedback submitted / மதிப்பீடு சமர்ப்பிக்கப்பட்டது ⭐"
-    );
-
-
-    renderFeedback();
-
-    updateDashboard();
-}
-
-
-/* ================= DASHBOARD ================= */
-
-function updateDashboard() {
-
-    let productCount = 0;
-
-    let stockCount = 0;
-
-    let requestCount = 0;
-
-
-    if (currentUser.role === "farmer") {
-
-        const myCrops =
-            crops.filter(
-                c =>
-                    c.farmerId === currentUser.id
-            );
-
-
-        productCount =
-            myCrops.length;
-
-
-        stockCount =
-            myCrops.reduce(
-                (sum, crop) =>
-                    sum + Number(crop.stock),
-                0
-            );
-
-
-        requestCount =
-            requests.filter(
-                r =>
-                    r.farmerId === currentUser.id
-            ).length;
+        trade.buyerFeedback =
+            feedback;
 
     } else {
 
-        productCount =
-            crops.length;
+        alert(
+            "❌ You are not part of this trade."
+        );
 
-
-        stockCount =
-            crops.reduce(
-                (sum, crop) =>
-                    sum + Number(crop.stock),
-                0
-            );
-
-
-        requestCount =
-            requests.filter(
-                r =>
-                    r.buyerId === currentUser.id
-            ).length;
+        return;
     }
 
 
-    const ratings =
-        feedbacks.filter(
-            f =>
-                f.toId === currentUser.id
+    /*
+        Add rating to the other person's profile.
+    */
+
+    let targetName =
+        account.name ===
+            trade.farmerName
+
+            ? trade.buyerName
+
+            : trade.farmerName;
+
+
+    /*
+        Single-account demo:
+        We store rating in local feedback
+        records for the target user.
+    */
+
+    const allRatings =
+        readData(
+            "tnRatings",
+            []
         );
 
 
-    let averageRating = 0;
+    allRatings.push({
+
+        id: Date.now(),
+
+        target:
+            targetName,
+
+        from:
+            account.name,
+
+        rating,
+
+        comment,
+
+        tradeId,
+
+        date:
+            new Date().toLocaleString()
+
+    });
 
 
-    if (ratings.length) {
+    writeData(
+        "tnRatings",
+        allRatings
+    );
 
-        averageRating =
-            (
-                ratings.reduce(
-                    (sum, f) =>
-                        sum + Number(f.rating),
-                    0
-                )
-                /
-                ratings.length
-            ).toFixed(1);
+
+    saveAll();
+
+
+    notifyOtherUser(
+        targetName,
+        "⭐ New Feedback Received",
+        account.name +
+        " gave you " +
+        rating +
+        "/5 rating."
+    );
+
+
+    alert(
+        "⭐ Feedback submitted successfully!"
+    );
+
+
+    displayTrades();
+
+    updateProfileUI();
+}
+
+
+/* ================= PROFILE ================= */
+
+function editProfile() {
+
+    const box =
+        document.getElementById(
+            "profileEditBox"
+        );
+
+
+    box.classList.remove(
+        "hidden"
+    );
+
+
+    document.getElementById(
+        "profileName"
+    ).value =
+        account.name || "";
+
+
+    document.getElementById(
+        "profilePhone"
+    ).value =
+        account.phone || "";
+
+
+    document.getElementById(
+        "profileThought"
+    ).value =
+        account.thought || "";
+
+
+    document.getElementById(
+        "profileUPI"
+    ).value =
+        account.upi || "";
+
+
+    document.getElementById(
+        "profileBank"
+    ).value =
+        account.bankAccount || "";
+
+
+    document.getElementById(
+        "profileIFSC"
+    ).value =
+        account.ifsc || "";
+}
+
+
+function closeProfileEdit() {
+
+    document
+        .getElementById(
+            "profileEditBox"
+        )
+        .classList.add(
+            "hidden"
+        );
+}
+
+
+function uploadUPIQR(event) {
+
+    const file =
+        event.target.files[0];
+
+
+    if (!file) return;
+
+
+    const reader =
+        new FileReader();
+
+
+    reader.onload = e => {
+
+        currentUPIQR =
+            e.target.result;
+
+    };
+
+
+    reader.readAsDataURL(file);
+}
+
+
+function saveProfile() {
+
+    account.name =
+        document.getElementById(
+            "profileName"
+        ).value.trim();
+
+
+    account.phone =
+        document.getElementById(
+            "profilePhone"
+        ).value.trim();
+
+
+    account.thought =
+        document.getElementById(
+            "profileThought"
+        ).value.trim();
+
+
+    account.upi =
+        document.getElementById(
+            "profileUPI"
+        ).value.trim();
+
+
+    account.bankAccount =
+        document.getElementById(
+            "profileBank"
+        ).value.trim();
+
+
+    account.ifsc =
+        document.getElementById(
+            "profileIFSC"
+        ).value.trim();
+
+
+    if (currentUPIQR) {
+
+        account.upiQR =
+            currentUPIQR;
     }
 
 
-    document.getElementById(
-        "productCount"
-    ).textContent =
-        productCount;
+    /*
+        Update old farmer name
+        inside products/requests/trades
+    */
+
+    const oldName =
+        readData(
+            "tnOldAccountName",
+            account.name
+        );
 
 
-    document.getElementById(
-        "stockCount"
-    ).textContent =
-        stockCount;
+    products.forEach(p => {
+
+        if (
+            p.farmerName ===
+            oldName
+        ) {
+
+            p.farmerName =
+                account.name;
+        }
+    });
 
 
-    document.getElementById(
-        "requestCount"
-    ).textContent =
-        requestCount;
+    requests.forEach(r => {
+
+        if (
+            r.farmerName ===
+            oldName
+        ) {
+
+            r.farmerName =
+                account.name;
+        }
+    });
 
 
-    document.getElementById(
-        "ratingCount"
-    ).textContent =
-        averageRating;
-}
+    trades.forEach(t => {
+
+        if (
+            t.farmerName ===
+            oldName
+        ) {
+
+            t.farmerName =
+                account.name;
+        }
+    });
 
 
-/* ================= STORAGE FUNCTIONS ================= */
+    saveAll();
 
-function saveUsers() {
 
-    localStorage.setItem(
-        "tn_users",
-        JSON.stringify(users)
+    closeProfileEdit();
+
+    updateProfileUI();
+
+    displayProducts();
+
+    displayRequests();
+
+    displayTrades();
+
+
+    alert(
+        "✅ Profile updated successfully!"
     );
 }
 
 
-function saveCrops() {
+function updateProfileUI() {
+
+    if (!account) return;
+
+
+    document.getElementById(
+        "accountName"
+    ).textContent =
+        account.name;
+
+
+    document.getElementById(
+        "accountPhone"
+    ).textContent =
+        account.phone;
+
+
+    document.getElementById(
+        "accountRole"
+    ).textContent =
+        account.role === "farmer"
+            ? "👨‍🌾 Farmer"
+            : "🛒 Buyer";
+
+
+    document.getElementById(
+        "accountThought"
+    ).textContent =
+        account.thought ||
+        "No thoughts added yet.";
+
+
+    document.getElementById(
+        "accountUPI"
+    ).textContent =
+        account.upi ||
+        "Not added";
+
+
+    document.getElementById(
+        "accountBank"
+    ).textContent =
+        account.bankAccount ||
+        "Not added";
+
+
+    document.getElementById(
+        "accountIFSC"
+    ).textContent =
+        account.ifsc ||
+        "Not added";
+
+
+    const qrBox =
+        document.getElementById(
+            "upiQRBox"
+        );
+
+
+    if (
+        account.upiQR
+    ) {
+
+        qrBox.innerHTML = `
+
+            <p><strong>📱 UPI QR</strong></p>
+
+            <img
+                src="${account.upiQR}"
+                alt="UPI QR"
+            >
+
+        `;
+
+    } else {
+
+        qrBox.innerHTML =
+            "<p>📱 UPI QR not added</p>";
+    }
+
+
+    updateProfileRating();
+}
+
+
+function showProfile(role) {
+
+    if (!account) return;
+
+
+    if (
+        role !==
+        account.role
+    ) {
+
+        alert(
+            "This profile section belongs to another account type."
+        );
+
+        return;
+    }
+
+
+    updateProfileUI();
+}
+
+
+function updateProfileRating() {
+
+    const ratings =
+        readData(
+            "tnRatings",
+            []
+        );
+
+
+    const received =
+        ratings.filter(
+            r =>
+                r.target ===
+                account.name
+        );
+
+
+    const box =
+        document.getElementById(
+            "profileRating"
+        );
+
+
+    if (received.length === 0) {
+
+        box.textContent =
+            "No ratings yet.";
+
+        return;
+    }
+
+
+    const total =
+        received.reduce(
+            (sum, r) =>
+                sum +
+                Number(r.rating),
+            0
+        );
+
+
+    const average =
+        (
+            total /
+            received.length
+        ).toFixed(1);
+
+
+    box.innerHTML = `
+
+        ⭐
+        <strong>
+            ${average}/5
+        </strong>
+
+        <br>
+
+        ${received.length}
+        rating(s)
+
+    `;
+}
+
+
+/* ================= EDIT / DELETE ================= */
+
+function editProduct(id) {
+
+    const product =
+        products.find(
+            p =>
+                Number(p.id) ===
+                Number(id)
+        );
+
+
+    if (!product) return;
+
+
+    const name =
+        prompt(
+            "Crop Name:",
+            product.cropName
+        );
+
+
+    if (name === null) return;
+
+
+    const quantity =
+        Number(
+            prompt(
+                "Available Quantity:",
+                product.remainingQuantity
+            )
+        );
+
+
+    const price =
+        Number(
+            prompt(
+                "Farmer Price / KG:",
+                product.price
+            )
+        );
+
+
+    if (
+        !name.trim() ||
+        quantity <= 0 ||
+        price <= 0
+    ) {
+
+        alert(
+            "Invalid values."
+        );
+
+        return;
+    }
+
+
+    product.cropName =
+        name.trim();
+
+
+    product.quantity =
+        quantity;
+
+
+    product.remainingQuantity =
+        quantity;
+
+
+    product.price =
+        price;
+
+
+    saveAll();
+
+    displayProducts();
+}
+
+
+function deleteProduct(id) {
+
+    if (
+        !confirm(
+            "Delete this crop?"
+        )
+    ) return;
+
+
+    products =
+        products.filter(
+            p =>
+                Number(p.id) !==
+                Number(id)
+        );
+
+
+    requests =
+        requests.filter(
+            r =>
+                Number(r.productId) !==
+                Number(id) ||
+                r.status !==
+                "Pending"
+        );
+
+
+    saveAll();
+
+    displayProducts();
+
+    displayRequests();
+}
+
+
+/* ================= AUTO STOCK ================= */
+
+function cleanupZeroStock() {
+
+    const zeroProducts =
+        products.filter(
+            p =>
+                Number(
+                    p.remainingQuantity
+                ) <= 0
+        );
+
+
+    if (
+        zeroProducts.length === 0
+    ) return;
+
+
+    const zeroIds =
+        zeroProducts.map(
+            p =>
+                Number(p.id)
+        );
+
+
+    products =
+        products.filter(
+            p =>
+                !zeroIds.includes(
+                    Number(p.id)
+                )
+        );
+
+
+    requests.forEach(r => {
+
+        if (
+            zeroIds.includes(
+                Number(r.productId)
+            ) &&
+            r.status === "Pending"
+        ) {
+
+            r.status =
+                "Rejected";
+        }
+
+    });
+
+
+    saveAll();
+}
+
+
+/* ================= CHART ================= */
+
+function updateBuyerOfferChart() {
+
+    const chart =
+        document.getElementById(
+            "buyerOfferChart"
+        );
+
+
+    const empty =
+        document.getElementById(
+            "chartEmpty"
+        );
+
+
+    if (
+        !chart ||
+        !account ||
+        account.role !== "farmer"
+    ) return;
+
+
+    const data =
+        requests.filter(
+            r =>
+                r.farmerName ===
+                account.name
+        );
+
+
+    if (data.length === 0) {
+
+        chart.innerHTML = "";
+
+        empty.style.display =
+            "block";
+
+
+        document.getElementById(
+            "chartBuyerCount"
+        ).textContent = "0";
+
+
+        document.getElementById(
+            "chartQuantity"
+        ).textContent = "0 KG";
+
+
+        document.getElementById(
+            "chartBestOffer"
+        ).textContent = "₹0/KG";
+
+
+        return;
+    }
+
+
+    empty.style.display =
+        "none";
+
+
+    const highest =
+        Math.max(
+            ...data.map(
+                r =>
+                    Number(
+                        r.offerPrice || 0
+                    )
+            )
+        );
+
+
+    const totalQuantity =
+        data.reduce(
+            (sum, r) =>
+                sum +
+                Number(
+                    r.quantity || 0
+                ),
+            0
+        );
+
+
+    document.getElementById(
+        "chartBuyerCount"
+    ).textContent =
+        data.length;
+
+
+    document.getElementById(
+        "chartQuantity"
+    ).textContent =
+        totalQuantity +
+        " KG";
+
+
+    document.getElementById(
+        "chartBestOffer"
+    ).textContent =
+        "₹" +
+        highest +
+        "/KG";
+
+
+    chart.innerHTML = "";
+
+
+    data
+        .slice()
+        .sort(
+            (a, b) =>
+                Number(b.offerPrice) -
+                Number(a.offerPrice)
+        )
+        .forEach(request => {
+
+            const price =
+                Number(
+                    request.offerPrice || 0
+                );
+
+
+            const height =
+                Math.max(
+                    10,
+                    (price / highest) *
+                    230
+                );
+
+
+            const best =
+                price === highest;
+
+
+            const column =
+                document.createElement(
+                    "div"
+                );
+
+
+            column.className =
+                "chart-column";
+
+
+            column.innerHTML = `
+
+                <div
+                    class="chart-bar ${best ? "best" : ""
+                }"
+                    style="height:${height}px"
+                >
+
+                    <span class="chart-price">
+                        ₹${price}/KG
+                    </span>
+
+                    <span class="chart-buyer">
+                        🛒
+                        ${escapeHTML(
+                    request.buyerName
+                )}
+                    </span>
+
+                    <span class="chart-quantity">
+                        ${request.quantity} KG
+                    </span>
+
+                </div>
+
+            `;
+
+
+            chart.appendChild(
+                column
+            );
+
+        });
+}
+
+
+/* ================= REAL-TIME NOTIFICATION ================= */
+
+/*
+    localStorage storage event works
+    between two browser tabs/windows
+    using the same browser storage.
+*/
+
+function notifyOtherUser(
+    targetUser,
+    title,
+    message
+) {
 
     localStorage.setItem(
-        "tn_crops",
-        JSON.stringify(crops)
+        "tnRealtimeNotification",
+        JSON.stringify({
+
+            targetUser,
+
+            title,
+
+            message,
+
+            time:
+                Date.now()
+
+        })
     );
 }
 
 
-function saveRequests() {
+window.addEventListener(
+    "storage",
+    function (event) {
 
-    localStorage.setItem(
-        "tn_requests",
-        JSON.stringify(requests)
-    );
-}
-
-
-function saveFeedbacks() {
-
-    localStorage.setItem(
-        "tn_feedbacks",
-        JSON.stringify(feedbacks)
-    );
-}
+        if (
+            event.key !==
+            "tnRealtimeNotification"
+        ) return;
 
 
-/* ================= TOAST ================= */
-
-function showToast(message) {
-
-    const toast =
-        document.getElementById("toast");
+        if (!event.newValue)
+            return;
 
 
-    toast.textContent =
+        try {
+
+            const data =
+                JSON.parse(
+                    event.newValue
+                );
+
+
+            if (
+                account &&
+                data.targetUser ===
+                account.name
+            ) {
+
+                showNotification(
+                    data.title,
+                    data.message
+                );
+
+                updateNotificationCount();
+
+                displayRequests();
+
+                displayTrades();
+
+                displayProducts();
+
+            }
+
+        } catch (e) {
+            console.log(e);
+        }
+
+    }
+);
+
+
+function showNotification(
+    title,
+    message
+) {
+
+    const box =
+        document.getElementById(
+            "notificationBox"
+        );
+
+
+    document.getElementById(
+        "notificationTitle"
+    ).textContent =
+        title;
+
+
+    document.getElementById(
+        "notificationText"
+    ).textContent =
         message;
 
 
-    toast.style.display =
-        "block";
+    box.classList.remove(
+        "hidden"
+    );
 
 
-    setTimeout(
-        () => {
+    setTimeout(() => {
 
-            toast.style.display =
-                "none";
+        box.classList.add(
+            "hidden"
+        );
 
-        },
-        3000
+    }, 5000);
+}
+
+
+function updateNotificationCount() {
+
+    if (!account) return;
+
+
+    const count =
+        requests.filter(
+            r =>
+                account.role === "farmer"
+
+                    ?
+
+                    (
+                        r.farmerName ===
+                        account.name &&
+                        r.status ===
+                        "Pending"
+                    )
+
+                    :
+
+                    (
+                        r.buyerName ===
+                        account.name &&
+                        r.status ===
+                        "Accepted"
+                    )
+        ).length;
+
+
+    const el =
+        document.getElementById(
+            "notificationCount"
+        );
+
+
+    if (el) {
+        el.textContent =
+            count;
+    }
+}
+
+
+/* ================= SAVE ================= */
+
+function saveAll() {
+
+    writeData(
+        "tnAccount",
+        account
+    );
+
+    writeData(
+        "tnProducts",
+        products
+    );
+
+    writeData(
+        "tnRequests",
+        requests
+    );
+
+    writeData(
+        "tnTrades",
+        trades
     );
 }
+
+
+/* ================= HELPERS ================= */
+
+function showMessage(
+    id,
+    message,
+    color
+) {
+
+    const el =
+        document.getElementById(id);
+
+
+    if (el) {
+
+        el.innerHTML = `
+
+            <div
+                style="
+                    color:${color};
+                    font-weight:bold;
+                    margin-top:10px
+                "
+            >
+                ${message}
+            </div>
+
+        `;
+    }
+}
+
+
+function escapeHTML(value) {
+
+    return String(value)
+
+        .replace(
+            /&/g,
+            "&amp;"
+        )
+
+        .replace(
+            /</g,
+            "&lt;"
+        )
+
+        .replace(
+            />/g,
+            "&gt;"
+        )
+
+        .replace(
+            /"/g,
+            "&quot;"
+        )
+
+        .replace(
+            /'/g,
+            "&#039;"
+        );
+}
+
+
+/* ================= START ================= */
+
+document.addEventListener(
+    "DOMContentLoaded",
+    function () {
+
+        account =
+            readData(
+                "tnAccount",
+                null
+            );
+
+
+        products =
+            readData(
+                "tnProducts",
+                []
+            );
+
+
+        requests =
+            readData(
+                "tnRequests",
+                []
+            );
+
+
+        trades =
+            readData(
+                "tnTrades",
+                []
+            );
+
+
+        if (!account) {
+
+            localStorage.removeItem(
+                "tnLoggedIn"
+            );
+
+            showCreate();
+
+            return;
+        }
+
+
+        if (
+            localStorage.getItem(
+                "tnLoggedIn"
+            ) === "true"
+        ) {
+
+            openApp();
+
+        } else {
+
+            showLogin();
+
+        }
+
+    }
+);
